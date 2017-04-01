@@ -1,6 +1,6 @@
 
 #include <unistd.h>
-
+#include <QDataStream>
 #include <QVBoxLayout>
 #include <QApplication>
 #include <QDebug>
@@ -15,7 +15,6 @@ ChatDialog::ChatDialog()
 	// This widget expands both horizontally and vertically.
 	textview = new QTextEdit(this);
 	textview->setReadOnly(true);
-
 	// Small text-entry box the user can enter messages.
 	// This widget normally expands only horizontally,
 	// leaving extra vertical space for the textview widget.
@@ -32,11 +31,35 @@ ChatDialog::ChatDialog()
 	layout->addWidget(textline);
 	setLayout(layout);
 
+	mySocket = new NetSocket();
+    if (!mySocket->bind())
+        exit(1);
+
+
 	// Register a callback on the textline's returnPressed signal
 	// so that we can send the message entered by the user.
 	connect(textline, SIGNAL(returnPressed()),
 		this, SLOT(gotReturnPressed()));
 }
+
+void ChatDialog::sendDatagrams()
+{
+
+    QVariantMap msg;
+    msg.insert("ChatText",textline->text());
+    // msg.insert("Dest", destOrigin);
+    // msg.insert("HopLimit",  hopLimit);
+    // msg.insert("Origin",Origin);
+    QByteArray datagram;
+    QDataStream stream(&datagram,QIODevice::ReadWrite);
+    stream << msg;
+    mySocket->writeDatagram(datagram.data(), datagram.size(), QHostAddress("127.0.0.1"),
+                            9999);
+
+    textview->append(textline->text());
+
+}
+
 
 void ChatDialog::gotReturnPressed()
 {
@@ -44,7 +67,7 @@ void ChatDialog::gotReturnPressed()
 	// Insert some networking code here...
 	qDebug() << "FIX: send message to other peers: " << textline->text();
 	textview->append(textline->text());
-
+	sendDatagrams();
 	// Clear the textline to get ready for the next input message.
 	textline->clear();
 }
@@ -68,6 +91,7 @@ bool NetSocket::bind()
 	for (int p = myPortMin; p <= myPortMax; p++) {
 		if (QUdpSocket::bind(p)) {
 			qDebug() << "bound to UDP port " << p;
+			myPort = p;
 			return true;
 		}
 	}
