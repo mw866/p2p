@@ -38,11 +38,15 @@ QHostAddress|http://doc.qt.io/qt-4.8/qhostaddress.html#details
 Function|Link
 ---|---
 Q3Socket::readyRead()|http://doc.qt.io/qt-4.8/q3socket.html#readyRead
+ Q3SocketDevice::connect|http://doc.qt.io/qt-4.8/q3socketdevice.html#connect
 
 ### Gossip Protocol
 * RFC 1036 https://tools.ietf.org/html/rfc1036
       
-
+### Cmake:
+* Cmake FindQt4: https://cmake.org/cmake/help/v3.6/module/FindQt4.html
+* Qt4 in CLion: http://stackoverflow.com/questions/30235175/how-to-configure-clion-ide-for-qt-framework
+* CMake with Qt4: https://wiki.qt.io/Using_CMake_build_system#CMakeLists.txt_for_same_project
 
 ### Peerster
 * https://github.com/mengci/Peerster
