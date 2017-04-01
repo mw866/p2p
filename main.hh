@@ -32,10 +32,12 @@ public:
 
 public slots:
 	void gotReturnPressed();
+    void readPendingDatagrams();
 
 private:
 	QTextEdit *textview;
 	QLineEdit *textline;
+
 };
 
 #endif // P2PAPP_MAIN_HH

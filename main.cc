@@ -40,6 +40,9 @@ ChatDialog::ChatDialog()
 	// so that we can send the message entered by the user.
 	connect(textline, SIGNAL(returnPressed()),
 		this, SLOT(gotReturnPressed()));
+
+    connect(mySocket, SIGNAL(readyRead()),
+            this, SLOT(readPendingDatagrams()));
 }
 
 void ChatDialog::sendDatagrams()
@@ -53,12 +56,45 @@ void ChatDialog::sendDatagrams()
     QByteArray datagram;
     QDataStream stream(&datagram,QIODevice::ReadWrite);
     stream << msg;
-    mySocket->writeDatagram(datagram.data(), datagram.size(), QHostAddress("127.0.0.1"),
-                            9999);
+
+    // TODO Change hardcoded destination portnumber
+    mySocket->writeDatagram(datagram.data(), datagram.size(), QHostAddress("127.0.0.1"), 36770);
 
     textview->append(textline->text());
 
 }
+
+void ChatDialog::readPendingDatagrams()
+{
+    while (mySocket->hasPendingDatagrams()) {
+        QByteArray datagram;
+        datagram.resize(mySocket->pendingDatagramSize());
+        QHostAddress senderAddress;
+        quint16 senderPort;
+
+        // TODO Change hardcoded destination portnumber
+        mySocket->readDatagram(datagram.data(), datagram.size(), &senderAddress,  &senderPort);
+
+        //QPeer sender(senderAddress, senderPort);
+        // FIXME: Adding self as a peer accidentally
+        //        addPeer(sender);
+
+        QVariantMap messageMap;
+        QDataStream serializer(&datagram, QIODevice::ReadOnly);
+        serializer >> messageMap;
+        if (serializer.status() != QDataStream::Ok) {
+            printf("Failed to deserialize datagram into QVariantMap");
+            return;
+        }
+
+        // Handle rumor-mongoring and display if it's a new message
+        //processIncomingDatagram(sender, messageMap);
+
+        textview->append(messageMap.value("ChatText").toString());
+        qDebug() << "Deserialized datagram to " << messageMap.value("ChatText");
+    }
+}
+
 
 
 void ChatDialog::gotReturnPressed()
@@ -66,7 +102,7 @@ void ChatDialog::gotReturnPressed()
 	// Initially, just echo the string locally.
 	// TODO Insert some networking code here...
 	qDebug() << "FIX: send message to other peers: " << textline->text();
-	textview->append(textline->text());
+//	textview->append(textline->text());
 	sendDatagrams();
 	// Clear the textline to get ready for the next input message.
 	textline->clear();
