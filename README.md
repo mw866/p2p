@@ -5,6 +5,10 @@
 
         qmake-qt4
         make
+        
+* Listen to UDP Port: `netcat -ul <port>'
+
+
 
 ## Installation
 * Install Qt on Ubuntu: `sudo apt-get install qt4-dev-tools`
@@ -31,6 +35,7 @@ QByteArray|http://doc.qt.io/qt-4.8/qbytearray.html#details
 QDataStream|http://doc.qt.io/qt-4.8/qdatastream.html#details
 QHostAddress|http://doc.qt.io/qt-4.8/qhostaddress.html#details
 
+
     * Serializing Qt Data Types: http://doc.qt.io/qt-4.8/datastreamformat.html
 
 #### All Functions
@@ -39,6 +44,7 @@ Function|Link
 ---|---
 Q3Socket::readyRead()|http://doc.qt.io/qt-4.8/q3socket.html#readyRead
  Q3SocketDevice::connect|http://doc.qt.io/qt-4.8/q3socketdevice.html#connect
+ http://doc.qt.io/qt-4.8/qudpsocket.html#readDatagram
 
 ### Gossip Protocol
 * RFC 1036 https://tools.ietf.org/html/rfc1036
