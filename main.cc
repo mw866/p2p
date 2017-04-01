@@ -64,7 +64,7 @@ void ChatDialog::sendDatagrams()
 void ChatDialog::gotReturnPressed()
 {
 	// Initially, just echo the string locally.
-	// Insert some networking code here...
+	// TODO Insert some networking code here...
 	qDebug() << "FIX: send message to other peers: " << textline->text();
 	textview->append(textline->text());
 	sendDatagrams();
