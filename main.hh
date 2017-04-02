@@ -48,8 +48,9 @@ class ChatDialog : public QDialog
         QTextEdit *textview;
         QLineEdit *textline;
         QMap<QString, quint32>* m_messageStatus;
-
-
+        void processIncomingDatagram(QVariantMap& messageMap);
+        void processStatus(QVariantMap& wants);
+        void sendStatus();
 };
 
 #endif // P2PAPP_MAIN_HH

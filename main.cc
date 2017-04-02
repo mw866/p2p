@@ -40,6 +40,7 @@ ChatDialog::ChatDialog()
 
 }
 
+// Send Chat Message
 void ChatDialog::sendDatagrams()
 {
     // msg: the Rumor message, the key-value pairs of a user message to be gossipped.
@@ -53,34 +54,40 @@ void ChatDialog::sendDatagrams()
     // msg.insert("Dest", destOrigin);
     // msg.insert("HopLimit",  hopLimit);
 
-
     // SeqNo: the monotonically increasing sequence number assigned by the original sender, as a quint32 value.
     SeqNo += 1;
     msg.insert("SeqNo",  SeqNo);
 
 
+    // Sending the Rumor message
+    QByteArray datagram;
+    QDataStream stream(&datagram,QIODevice::ReadWrite);
+    stream << msg;
+    // TODO Change hardcoded destination portnumber
+    mySocket->writeDatagram(datagram.data(), datagram.size(), QHostAddress("127.0.0.1"), 36770);
+    textview->append(textline->text());
+}
+
+// Send Status Message
+// TODO To streamline with send Datagrams
+void ChatDialog::sendStatus()
+{
     QVariantMap statusMap;
             foreach (const QString &hostname, m_messageStatus->keys()) {
             statusMap.insert(hostname, m_messageStatus->value(hostname));
         }
 
-    msg.insert("Want", statusMap);
+    QVariantMap statusMapMsgMap;
+    statusMapMsgMap.insert("Want", statusMap);
 
-
-    // Sending the Rumor message
-
+    // Sending the Status message
     QByteArray datagram;
     QDataStream stream(&datagram,QIODevice::ReadWrite);
-    stream << msg;
-
-    //    sendDatagram(destination, messageMap);
+    stream << statusMapMsgMap;
     // TODO Change hardcoded destination portnumber
     mySocket->writeDatagram(datagram.data(), datagram.size(), QHostAddress("127.0.0.1"), 36770);
-
     textview->append(textline->text());
 }
-
-
 
 void ChatDialog::readPendingDatagrams()
 {
@@ -105,11 +112,118 @@ void ChatDialog::readPendingDatagrams()
             return;
         }
 
-        // Handle rumor-mongoring and display if it's a new message processIncomingDatagram(sender, messageMap);
-
+        // TODO Handle rumor-mongoring and display if it's a new message processIncomingDatagram(sender, messageMap);
+        processIncomingDatagram(messageMap);
         textview->append(messageMap.value("ChatText").toString());
         qDebug() << "SUCCESS: Deserialized datagram to " << messageMap.value("ChatText");
     }
+}
+
+
+
+void ChatDialog::processIncomingDatagram(QVariantMap& messageMap)
+// Identify and triage incoming datagram
+{
+    if (messageMap.contains("Want")) {
+        QMap<QString, QVariant> wants = messageMap.value("Want").toMap();
+        if (wants.isEmpty()) { // Also handles when "Want" key doesn't exist,
+            // b/c nil.toMap() is empty;
+            qDebug() << "ERROR: Received invalid or empty status map";
+            return;
+        }
+
+        processStatus(wants);
+    }  else {
+        qDebug() << "ERROR: Improperly formatted message";
+        return;
+    }
+}
+
+
+void ChatDialog::processStatus(QVariantMap& wants)
+{
+
+
+
+    // Since message is well-formed, mark peer as having sent a message
+//    quint16 oldVal = m_peerStatus->value(sender);
+//    m_peerStatus->insert(sender, oldVal - 1);
+
+    QString hostname;
+    quint32 firstSelfUnreceived, firstSenderUnreceived;
+
+    int sentMessage = 0;
+    // LOG("Checking if I can gossip a message");
+    QMap<QString, quint32>::const_iterator i;
+    // See if server knows about an origin unknown to the peer
+    for (i = m_messageStatus->constBegin(); i != m_messageStatus->constEnd(); i++) {
+        hostname = i.key();
+        // NOTE: QVariantMap == QMap<QString, QVariant>, so don't need to convert
+        // keys to make comparison
+        if (!wants.contains(hostname) && !sentMessage) {
+            // qDebug() << "Sending message - hostname: " << hostname <<
+            //             ", seqNo: " << 1;
+            //sendChatMessage(sender, qMakePair(hostname, (quint32) 1));
+            qDebug() << "TODO: To resend message.",
+            sentMessage = 1;
+            break; // See if the want message contains hostnames I'm missing
+        }
+    }
+
+    // See if server has a more recent message for any mutually known origins
+    if (!sentMessage) {
+        for (i = m_messageStatus->constBegin(); i != m_messageStatus->constEnd(); i++) {
+            hostname = i.key();
+            firstSelfUnreceived = i.value();
+            firstSenderUnreceived = (quint32) wants.value(hostname).toUInt();
+            if (firstSenderUnreceived == 0) {
+                qDebug() << "Malformed status from peer";
+                return;
+            }
+            if (firstSelfUnreceived > firstSenderUnreceived) {
+                // qDebug() << "Sending message - hostname: " << hostname <<
+                //             ", seqNo: " << firstSenderUnreceived;
+//                sendChatMessage(sender, qMakePair(hostname, firstSenderUnreceived));
+                qDebug() << "TODO: To resend message.";
+                sentMessage = 1;
+                break;
+            }
+        }
+    }
+
+    // LOG("Checking if I need a message");
+    // See if peer knows about an origin unknown to the server
+    // NOTE: Iterating over 'wants' map
+    QVariantMap::const_iterator j;
+    for (j = wants.constBegin(); j != wants.constEnd(); j++) {
+        hostname = j.key();
+        if (!m_messageStatus->contains(hostname)) {
+            if (!sentMessage) {
+                sendStatus();
+                sentMessage = 1;
+            }
+            // Also add that origin to my status so another node could potentially
+            // send me the message
+            m_messageStatus->insert(hostname, 1);
+        }
+    }
+    // See if peer has a more recent message for any mutually known origins
+    // NOTE: Iterating over 'status,' as above
+    if (!sentMessage) {
+        for (i = m_messageStatus->constBegin(); i != m_messageStatus->constEnd(); i++) {
+            hostname = i.key();
+            firstSelfUnreceived = i.value();
+            firstSenderUnreceived = (quint32) wants.value(hostname).toUInt();
+            if (firstSenderUnreceived == 0) {qDebug() << "Malformed status from peer"; return; };
+            if (firstSelfUnreceived < firstSenderUnreceived) {sendStatus(); break;
+            }
+        }
+    }
+
+    // Given both server and peer are in sync, randomly decide whether to
+    // rumor-monger with another peer
+    if (rand() % 2 == 0) { sendStatus(/*randomPeer()*/); return; };
+
 }
 
 
