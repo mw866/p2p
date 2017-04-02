@@ -6,37 +6,49 @@
 #include <QLineEdit>
 #include <QUdpSocket>
 
+#include <unistd.h>
+#include <QDataStream>
+#include <QVBoxLayout>
+#include <QApplication>
+#include <QDebug>
+#include <QHostInfo>
+#include <QtGlobal>
+
+
 
 class NetSocket : public QUdpSocket
 {
-	Q_OBJECT
+    Q_OBJECT
 
-public:
-	NetSocket();
+    public:
+        NetSocket();
 
-	// Bind this socket to a P2Papp-specific default port.
-	bool bind();
+        // Bind this socket to a P2Papp-specific default port.
+        bool bind();
 
-private:
-	int myPortMin, myPortMax, myPort;
+    private:
+        int myPortMin, myPortMax, myPort;
 };
 
 class ChatDialog : public QDialog
 {
-	Q_OBJECT
+    Q_OBJECT
 
-public:
-	ChatDialog();
-	void sendDatagrams();
-	NetSocket *mySocket;
+    public:
+        ChatDialog();
+        void sendDatagrams();
+        NetSocket *mySocket;
+        int SeqNo;
 
-public slots:
-	void gotReturnPressed();
-    void readPendingDatagrams();
+        public slots:
+                void gotReturnPressed();
+                void readPendingDatagrams();
 
-private:
-	QTextEdit *textview;
-	QLineEdit *textline;
+    private:
+        QTextEdit *textview;
+        QLineEdit *textline;
+        QMap<QString, quint32>* m_messageStatus;
+
 
 };
 

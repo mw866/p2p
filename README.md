@@ -34,17 +34,22 @@ QString|http://doc.qt.io/qt-4.8/qstring.html#details
 QByteArray|http://doc.qt.io/qt-4.8/qbytearray.html#details
 QDataStream|http://doc.qt.io/qt-4.8/qdatastream.html#details
 QHostAddress|http://doc.qt.io/qt-4.8/qhostaddress.html#details
+QHostInfo: http://doc.qt.io/qt-4.8/qhostinfo.html#details
 
-
-    * Serializing Qt Data Types: http://doc.qt.io/qt-4.8/datastreamformat.html
 
 #### All Functions
 
 Function|Link
 ---|---
 Q3Socket::readyRead()|http://doc.qt.io/qt-4.8/q3socket.html#readyRead
- Q3SocketDevice::connect|http://doc.qt.io/qt-4.8/q3socketdevice.html#connect
- http://doc.qt.io/qt-4.8/qudpsocket.html#readDatagram
+Q3SocketDevice::connect|http://doc.qt.io/qt-4.8/q3socketdevice.html#connect
+QUdpSocket::readDatagram()|http://doc.qt.io/qt-4.8/qudpsocket.html#readDatagram
+
+#### All Modules: http://doc.qt.io/qt-4.8/modules.html
+* QtGlobal Declaration: http://doc.qt.io/qt-4.8/qtglobal.html
+
+#### Other
+* Serializing Qt Data Types: http://doc.qt.io/qt-4.8/datastreamformat.html
 
 ### Gossip Protocol
 * RFC 1036 https://tools.ietf.org/html/rfc1036
