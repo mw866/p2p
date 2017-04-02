@@ -125,6 +125,7 @@ void ChatDialog::processIncomingDatagram(QVariantMap& messageMap)
 // Identify and triage incoming datagram
 {
     if (messageMap.contains("Want")) {
+        qDebug() << "INFO: Received  a Status Message";
         QMap<QString, QVariant> wants = messageMap.value("Want").toMap();
         if (wants.isEmpty()) { // Also handles when "Want" key doesn't exist,
             // b/c nil.toMap() is empty;
@@ -133,17 +134,20 @@ void ChatDialog::processIncomingDatagram(QVariantMap& messageMap)
         }
 
         processStatus(wants);
-    }  else {
+    }  else if(messageMap.contains("ChatText")){
+         qDebug() << "INFO: Received a Chat message";
+        // TODO Handle Chat message
+    }
+        else {
         qDebug() << "ERROR: Improperly formatted message";
         return;
     }
 }
 
 
+
 void ChatDialog::processStatus(QVariantMap& wants)
 {
-
-
 
     // Since message is well-formed, mark peer as having sent a message
 //    quint16 oldVal = m_peerStatus->value(sender);
