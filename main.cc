@@ -41,8 +41,7 @@ ChatDialog::ChatDialog()
 }
 
 // Send Chat Message
-void ChatDialog::sendDatagrams()
-{
+void ChatDialog::sendDatagrams() {
     // msg: the Rumor message, the key-value pairs of a user message to be gossipped.
     QVariantMap msg;
     //ChatText:  a QString containing user-entered text;
@@ -59,17 +58,27 @@ void ChatDialog::sendDatagrams()
     msg.insert("SeqNo",  SeqNo);
 
 
-    // Sending the Rumor message
+    int neighbor;
+    if (mySocket->myPort == mySocket->myPortMin) {
+        // TODO To check why +1 is not working
+        neighbor = mySocket->myPort + 2;
+
+    } else if (mySocket->myPort == mySocket->myPortMax) {
+        neighbor = mySocket->myPort - 1;
+    } else {
+        (rand() % 2 == 0) ?  neighbor = mySocket->myPort + 1: neighbor = mySocket->myPort - 1;
+    }
+
+
     QByteArray datagram;
     QDataStream stream(&datagram,QIODevice::ReadWrite);
     stream << msg;
     // TODO Change hardcoded destination portnumber
-    mySocket->writeDatagram(datagram.data(), datagram.size(), QHostAddress("127.0.0.1"), 36770);
+    mySocket->writeDatagram(datagram.data(), datagram.size(), QHostAddress("127.0.0.1"), neighbor);
     textview->append(textline->text());
 }
 
 // Send Status Message
-// TODO To streamline with send Datagrams
 void ChatDialog::sendStatus()
 {
     QVariantMap statusMap;
@@ -88,6 +97,12 @@ void ChatDialog::sendStatus()
     mySocket->writeDatagram(datagram.data(), datagram.size(), QHostAddress("127.0.0.1"), 36770);
     textview->append(textline->text());
 }
+
+
+void ChatDialog::sendRumor(){
+// TODO
+}
+
 
 void ChatDialog::readPendingDatagrams()
 {

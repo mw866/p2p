@@ -26,7 +26,7 @@ class NetSocket : public QUdpSocket
         // Bind this socket to a P2Papp-specific default port.
         bool bind();
 
-    private:
+    public:
         int myPortMin, myPortMax, myPort;
 };
 
@@ -51,6 +51,7 @@ class ChatDialog : public QDialog
         void processIncomingDatagram(QVariantMap& messageMap);
         void processStatus(QVariantMap& wants);
         void sendStatus();
+        void sendRumor();
 };
 
 #endif // P2PAPP_MAIN_HH
