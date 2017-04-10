@@ -36,7 +36,7 @@ class ChatDialog : public QDialog
 
     public:
         ChatDialog();
-        void sendDatagrams();
+        void sendDatagrams(QByteArray);
         NetSocket *mySocket;
         int SeqNo;
 
@@ -50,8 +50,10 @@ class ChatDialog : public QDialog
         QMap<QString, quint32>* m_messageStatus;
         void processIncomingDatagram(QVariantMap& messageMap);
         void processStatus(QVariantMap& wants);
-        void sendStatus();
+        void sendStatus(QByteArray);
         void sendRumor();
+        QByteArray serializeMessage(QString);
+        QByteArray serializeStatus();
 };
 
 #endif // P2PAPP_MAIN_HH
