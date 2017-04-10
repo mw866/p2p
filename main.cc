@@ -118,9 +118,15 @@ void ChatDialog::sendStatus(QByteArray datagram)
 }
 
 
-void ChatDialog::sendRumor(){
+void ChatDialog::replyWithRumor(){
 // TODO
 }
+
+
+void ChatDialog::rumorMongering(){
+//TODO
+}
+
 
 
 void ChatDialog::readPendingDatagrams()

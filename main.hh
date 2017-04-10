@@ -55,7 +55,8 @@ class ChatDialog : public QDialog
         void processStatus(QVariantMap& wants);
         void processMessage(QVariantMap& wants);
         void sendStatus(QByteArray);
-        void sendRumor();
+        void replyWithRumor();
+        void rumorMongering();
         QByteArray serializeMessage(QString);
         QByteArray serializeStatus();
 };
