@@ -44,7 +44,7 @@ QByteArray ChatDialog::serializeMessage(QString message_text) {
 
     QVariantMap msg;
     //ChatText:  a QString containing user-entered text;
-    msg.insert("ChatText",message_text);
+    msg.insert("ChatText", message_text);
 
     // Origin : identifies the message’s original sender as a QString value;
     msg.insert("Origin", QString::number(mySocket->myPort));
@@ -56,6 +56,16 @@ QByteArray ChatDialog::serializeMessage(QString message_text) {
     msg.insert("SeqNo",  SeqNo);
     SeqNo += 1;
 
+    // add messages to the message list
+    if(messages_list.contains(QString::number(mySocket->myPort))) { // if this is not the first message
+        messages_list[QString::number(mySocket->myPort)].insert(msg.value("SeqNo").toUInt(), msg);
+    }
+    else {
+        QMap<quint32, QVariantMap> qvariantmap;
+        messages_list.insert(QString::number(mySocket->myPort), qvariantmap);
+        messages_list[QString::number(mySocket->myPort)].insert(msg.value("SeqNo").toUInt(), msg);
+    }
+
     //serialize the message
     QByteArray datagram;
     QDataStream stream(&datagram,QIODevice::ReadWrite);
@@ -65,18 +75,18 @@ QByteArray ChatDialog::serializeMessage(QString message_text) {
 }
 
 QByteArray ChatDialog::serializeStatus() {
-    QVariantMap statusMap;
-            foreach (const QString &hostname, m_messageStatus->keys()) {
-            statusMap.insert(hostname, m_messageStatus->value(hostname));
-        }
+    // QVariantMap statusMap;
+    //         foreach (const QString &hostname, m_messageStatus->keys()) {
+    //         statusMap.insert(hostname, m_messageStatus->value(hostname));
+    //     }
 
-    QVariantMap statusMapMsgMap;
-    statusMapMsgMap.insert("Want", statusMap);
+    QMap<QString, QMap<QString, quint32> > statusMap;
+    statusMap.insert("Want", want_list);
 
     //serialize status
     QByteArray datagram;
     QDataStream stream(&datagram,QIODevice::ReadWrite);
-    stream << statusMapMsgMap;
+    stream << statusMap;
 
     return datagram;
 }
@@ -144,7 +154,6 @@ void ChatDialog::readPendingDatagrams()
 }
 
 
-
 void ChatDialog::processIncomingDatagram(QVariantMap& messageMap)
 // Identify and triage incoming datagram
 {
@@ -156,16 +165,20 @@ void ChatDialog::processIncomingDatagram(QVariantMap& messageMap)
             qDebug() << "ERROR: Received invalid or empty status map";
             return;
         }
-
         processStatus(wants);
     }  else if(messageMap.contains("ChatText")){
          qDebug() << "INFO: Received a Chat message";
+         processMessage(messageMap);
         // TODO Handle Chat message
     }
         else {
         qDebug() << "ERROR: Improperly formatted message";
         return;
     }
+}
+
+void ChatDialog::processMessage(QVariantMap& messageMap){
+
 }
 
 
@@ -264,6 +277,15 @@ void ChatDialog::gotReturnPressed()
 
     QString input_message = textline->text(); // get message text
     QByteArray message = serializeMessage(input_message); // serialize into bytestream
+    
+    // increment the want list before sending the datagram
+    if(want_list.contains(QString::number(mySocket->myPort))) {
+        want_list[QString::number(mySocket->myPort)]++;
+    }
+    else {
+        want_list.insert(QString::number(mySocket->myPort), 1);
+    }
+
 
     sendDatagrams(message);
     // Clear the textline to get ready for the next input message.

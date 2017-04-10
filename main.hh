@@ -39,6 +39,9 @@ class ChatDialog : public QDialog
         void sendDatagrams(QByteArray);
         NetSocket *mySocket;
         int SeqNo;
+        QMap<QString, quint32> want_list;
+
+        QMap<QString, QMap<quint32, QVariantMap> > messages_list;
 
         public slots:
                 void gotReturnPressed();
@@ -50,6 +53,7 @@ class ChatDialog : public QDialog
         QMap<QString, quint32>* m_messageStatus;
         void processIncomingDatagram(QVariantMap& messageMap);
         void processStatus(QVariantMap& wants);
+        void processMessage(QVariantMap& wants);
         void sendStatus(QByteArray);
         void sendRumor();
         QByteArray serializeMessage(QString);
