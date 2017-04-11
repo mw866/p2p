@@ -13,7 +13,8 @@
 #include <QDebug>
 #include <QHostInfo>
 #include <QtGlobal>
-
+#include <ctime>
+#include <cstdlib>
 
 
 class NetSocket : public QUdpSocket
@@ -51,12 +52,13 @@ class ChatDialog : public QDialog
         QTextEdit *textview;
         QLineEdit *textline;
         QMap<QString, quint32>* m_messageStatus;
-        void processIncomingDatagram(QVariantMap& messageMap);
+        void processIncomingDatagram(QVariantMap messageMap);
         void processStatus(QVariantMap& wants);
-        void processMessage(QVariantMap& wants);
+        void processMessage(QVariantMap wants);
         void sendStatus(QByteArray);
         void replyWithRumor();
-        void rumorMongering();
+        void rumorMongering(QVariantMap messageMap);
+        void addToMessageList(QVariantMap messageMap, quint32 origin, quint32 seqNo);
         QByteArray serializeMessage(QString);
         QByteArray serializeStatus();
 };

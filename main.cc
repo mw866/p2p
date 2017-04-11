@@ -102,8 +102,12 @@ void ChatDialog::sendDatagrams(QByteArray datagram) {
     } else if (mySocket->myPort == mySocket->myPortMax) {
         neighbor = mySocket->myPort - 1;
     } else {
+        qDebug () << "I am choosing random neighbor";
+        srand(time(NULL));
         (rand() % 2 == 0) ?  neighbor = mySocket->myPort + 1: neighbor = mySocket->myPort - 1;
     }
+
+    qDebug() <<  "Sending message to port " << QString::number(neighbor);
 
     mySocket->writeDatagram(datagram, datagram.size(), QHostAddress("127.0.0.1"), neighbor);
     //textview->append(textline->text());
@@ -123,8 +127,14 @@ void ChatDialog::replyWithRumor(){
 }
 
 
-void ChatDialog::rumorMongering(){
-//TODO
+void ChatDialog::rumorMongering(QVariantMap messageMap){
+
+    QByteArray datagram;
+    QDataStream stream(&datagram,QIODevice::ReadWrite);
+    stream << messageMap;
+    //send to a neighbor
+    sendDatagrams(datagram);
+    qDebug() << "Rumor has been mungored";
 }
 
 
@@ -154,15 +164,15 @@ void ChatDialog::readPendingDatagrams()
 
         // TODO Handle rumor-mongoring and display if it's a new message processIncomingDatagram(sender, messageMap);
         processIncomingDatagram(messageMap);
-        textview->append(messageMap.value("ChatText").toString());
         qDebug() << "SUCCESS: Deserialized datagram to " << messageMap.value("ChatText");
     }
 }
 
 
-void ChatDialog::processIncomingDatagram(QVariantMap& messageMap)
+void ChatDialog::processIncomingDatagram(QVariantMap messageMap)
 // Identify and triage incoming datagram
 {
+    qDebug() << "Inside processIncomingDatagram" << messageMap;
     if (messageMap.contains("Want")) {
         qDebug() << "INFO: Received  a Status Message";
         QMap<QString, QVariant> wants = messageMap.value("Want").toMap();
@@ -183,10 +193,57 @@ void ChatDialog::processIncomingDatagram(QVariantMap& messageMap)
     }
 }
 
-void ChatDialog::processMessage(QVariantMap& messageMap){
+void ChatDialog::processMessage(QVariantMap messageMap){
+    qDebug() << "Inside processMessage" << messageMap;
+    
+    quint32 origin = messageMap.value("Origin").toUInt();
+    quint32 seqNo = messageMap.value("SeqNo").toUInt();
 
+    if(mySocket->myPort != origin) {
+        qDebug() << "Inside this if statement" << mySocket->myPort;
+        qDebug() << "Want LIST:" << want_list;
+        // origin seen before
+        if(want_list.contains(QString::number(origin))) {
+            qDebug() << "Inside this want_list if statement and seq number is: " << seqNo << want_list.value("Origin");
+            //matches the sequences number
+            if (seqNo == want_list.value(QString::number(origin))) {
+                 qDebug() << "Inside this if statement with the matching seq number";
+                 //This is a new message so add to message list
+                 addToMessageList(messageMap, origin, seqNo);
+            }
+            //increment want list
+            want_list[QString::number(origin)] = seqNo+1;
+        }
+        else { 
+            qDebug() << "Inside this else statement";
+            //first time message is coming from this origin so add to want list 
+            want_list.insert(QString::number(origin), seqNo+1); // want the next message
+            //also add to the message list
+            addToMessageList(messageMap, origin, seqNo);
+        }
+    }
+    
 }
 
+//past messages
+void ChatDialog::addToMessageList(QVariantMap messageMap, quint32 origin, quint32 seqNo){
+    //QString messages = messageMap.value("ChatText").toString();
+    //ui->appendString(QString(origin + ": " + messages));
+    qDebug() << " Inside addToMessageList";
+    if(messages_list.contains(QString::number(origin))) {
+        messages_list[QString::number(origin)].insert(seqNo, messageMap);
+    }
+    else {
+        QMap<quint32, QMap<QString, QVariant> > qMap;
+        messages_list.insert(QString::number(origin), qMap);
+        messages_list[QString::number(origin)].insert(seqNo, messageMap);
+    }
+    //receiver will now see the sent message from the sender
+    textview->append(QString::number(origin) + ": " + messageMap.value("ChatText").toString());
+
+    rumorMongering(messageMap);
+
+}
 
 
 void ChatDialog::processStatus(QVariantMap& wants)
