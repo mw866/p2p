@@ -189,88 +189,76 @@ void ChatDialog::processMessage(QVariantMap& messageMap){
 
 
 
-void ChatDialog::processStatus(QVariantMap& wants)
+void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedStatusMap receivedStatusMap)
 {
 
-//     // Since message is well-formed, mark peer as having sent a message
-//    quint16 oldVal = m_peerStatus->value(sender);
-//    m_peerStatus->insert(sender, oldVal - 1);
 
-//     QString hostname;
-//     quint32 firstSelfUnreceived, firstSenderUnreceived;
+    QMap<QString, QVariant> rumorToSend;
+    QMap remoteWants = receivedStatusMap["Want"];
 
-//     int sentMessage = 0;
-//     // LOG("Checking if I can gossip a message");
-//     QMap<QString, quint32>::const_iterator i;
-//     // See if server knows about an origin unknown to the peer
-//     for (i = m_messageStatus->constBegin(); i != m_messageStatus->constEnd(); i++) {
-//         hostname = i.key();
-//         // NOTE: QVariantMap == QMap<QString, QVariant>, so don't need to convert
-//         // keys to make comparison
-//         if (!wants.contains(hostname) && !sentMessage) {
-//             // qDebug() << "Sending message - hostname: " << hostname <<
-//             //             ", seqNo: " << 1;
-//             //sendChatMessage(sender, qMakePair(hostname, (quint32) 1));
-//             qDebug() << "TODO: To resend message.",
-//             sentMessage = 1;
-//             break; // See if the want message contains hostnames I'm missing
-//         }
-//     }
+    qDebug() << "INFO: Remote WANTS: " << remoteWants;
+    QMap localWants; // TODO Temp; localwants to be defined in globally instead
+    qDebug() << "INFO: Local WANTS: " << localWants;
 
-//     // See if server has a more recent message for any mutually known origins
-//     if (!sentMessage) {
-//         for (i = m_messageStatus->constBegin(); i != m_messageStatus->constEnd(); i++) {
-//             hostname = i.key();
-//             firstSelfUnreceived = i.value();
-//             firstSenderUnreceived = (quint32) wants.value(hostname).toUInt();
-//             if (firstSenderUnreceived == 0) {
-//                 qDebug() << "Malformed status from peer";
-//                 return;
-//             }
-//             if (firstSelfUnreceived > firstSenderUnreceived) {
-//                 // qDebug() << "Sending message - hostname: " << hostname <<
-//                 //             ", seqNo: " << firstSenderUnreceived;
-// //                sendChatMessage(sender, qMakePair(hostname, firstSenderUnreceived));
-//                 qDebug() << "TODO: To resend message.";
-//                 sentMessage = 1;
-//                 break;
-//             }
-//         }
-//    }
 
-//     // LOG("Checking if I need a message");
-//     // See if peer knows about an origin unknown to the server
-//     // NOTE: Iterating over 'wants' map
-//     QVariantMap::const_iterator j;
-//     for (j = wants.constBegin(); j != wants.constEnd(); j++) {
-//         hostname = j.key();
-//         if (!m_messageStatus->contains(hostname)) {
-//             if (!sentMessage) {
-//                 sendStatus();
-//                 sentMessage = 1;
-//             }
-//             // Also add that origin to my status so another node could potentially
-//             // send me the message
-//             m_messageStatus->insert(hostname, 1);
-//         }
-//     }
-//     // See if peer has a more recent message for any mutually known origins
-//     // NOTE: Iterating over 'status,' as above
-//     if (!sentMessage) {
-//         for (i = m_messageStatus->constBegin(); i != m_messageStatus->constEnd(); i++) {
-//             hostname = i.key();
-//             firstSelfUnreceived = i.value();
-//             firstSenderUnreceived = (quint32) wants.value(hostname).toUInt();
-//             if (firstSenderUnreceived == 0) {qDebug() << "Malformed status from peer"; return; };
-//             if (firstSelfUnreceived < firstSenderUnreceived) {sendStatus(); break;
-//             }
-//         }
-//     }
+    //===Decide the status===
+    /* INSYNC: Local SeqNo is exactly same the remote SeqNos
+     * AHEAD: Local SeqNo is greater than the remote SeqNo
+     * BEHIND:
+     * */
 
-//     // Given both server and peer are in sync, randomly decide whether to
-//     // rumor-monger with another peer
-//     if (rand() % 2 == 0) { sendStatus(/*randomPeer()*/); return; };
+    enum Status { INSYNC, AHEAD, BEHIND };
+    Status status =  INSYNC;
 
+    // In the local WANTS, iterate through all hosts(key)  and compare SeqNo(value) with remote WANTS
+    QMap::const_iterator localIter = localWants.constBegin();
+
+    while (localIter ){
+        if(!remoteWants.contains(localIter.key())){
+            // If the remote WANTS does NOT contain the local node
+            qDebug() << "INFO: Local is AHEAD of remote; Remote does not have Local.";
+            status = AHEAD;
+            rumorToSend = messageMap[localIter.key()][quint32(0)];
+        } else if(remoteWants[localIter.key()] <= localWants[localIter.key()]) {
+            qDebug() << "INFO: Local is AHEAD of remote; Remote has Local";
+            status = AHEAD; // we are ahead, they are behind
+            QMap messageMap; // TODO Temp; messageMap to be defined globally;
+            rumorToSend = messageMap[localIter.key()][remoteWants[localIter.key()]];
+        }
+        else {
+            qDebug() << "INFO: Local is BEHIND remote; Local has Remote.";
+            status = BEHIND;
+        }
+    }
+
+    // In the remote WANTS, iterate through all hosts(key) and compare SeqNo(value) with local WANTS
+    QMap::const_iterator remoteIter = remoteWants.constBegin();
+    while (remoteIter != remoteWants.constEnd()){
+        if(!localWants.contains(remoteIter.key())) {
+            qDebug() << "INFO: Local is BEHIND remote; Local does NOT have Remote.";
+            status = BEHIND;
+        }
+    }
+
+    // ===Act on the status===
+    switch(status) {
+        case AHEAD:
+            qDebug() << "INFO: Local is AHEAD of the remote. Do nothing";
+            break;
+        case BEHIND:
+            qDebug() << "INFO: Local is BEHIND the remote. Reply with status";
+            QByteArray statusBytes = serializeMessage(messages_list);
+            sendStatus(statusBytes);
+            break;
+        case INSYNC:
+            qDebug() << "INFO: Local is IN SYNC with remote. Start Rumor Mongering.";
+            if(qrand() > .5*RAND_MAX) { // continue rumormongering
+                QByteArray rumorBytes = serializeMessage(rumorToSend);
+                rumorMongering(rumorBytes); //TODO
+                mySocket->restartTimer();
+            }
+            break;
+    }
 }
 
 
@@ -314,6 +302,13 @@ bool NetSocket::bind()
         if (QUdpSocket::bind(p)) {
             qDebug() << "bound to UDP port " << p;
             myPort = p;
+
+
+
+            // initialize timers
+            timer = new QTimer(this);
+            connect(timer, SIGNAL(timeout()), this, SLOT(timeoutHandler()));
+
             return true;
         }
     }
@@ -322,6 +317,12 @@ bool NetSocket::bind()
         << "-" << myPortMax << " available";
     return false;
 }
+
+void NetSocket::restartTimer() {
+    timer->start(1000);
+}
+
+
 
 int main(int argc, char **argv)
 {

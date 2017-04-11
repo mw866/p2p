@@ -36,6 +36,7 @@ QDataStream|http://doc.qt.io/qt-4.8/qdatastream.html#details
 QHostAddress|http://doc.qt.io/qt-4.8/qhostaddress.html#details
 QHostInfo: http://doc.qt.io/qt-4.8/qhostinfo.html#details
 
+http://stackoverflow.com/questions/33479215/compare-two-qmaps
 
 #### All Functions
 
