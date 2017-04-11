@@ -5,7 +5,6 @@
 #include <QTextEdit>
 #include <QLineEdit>
 #include <QUdpSocket>
-
 #include <unistd.h>
 #include <QDataStream>
 #include <QVBoxLayout>
@@ -13,6 +12,7 @@
 #include <QDebug>
 #include <QHostInfo>
 #include <QtGlobal>
+#include <QTimer>
 #include <ctime>
 #include <cstdlib>
 
@@ -26,9 +26,12 @@ class NetSocket : public QUdpSocket
 
         // Bind this socket to a P2Papp-specific default port.
         bool bind();
+        void restartTimer();
+        QTimer * timer;
 
-    public:
+public:
         int myPortMin, myPortMax, myPort;
+
 };
 
 class ChatDialog : public QDialog
