@@ -300,12 +300,12 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
             qDebug() << "INFO: Local is AHEAD of remote; Remote does not have Local.";
             status = AHEAD;
             rumorMapToSend = messages_list[localIter.key()][quint32(0)];
-        } else if(remoteWants[localIter.key()] <= want_list[localIter.key()]) {
+        } else if(remoteWants[localIter.key()] < want_list[localIter.key()]) {
             qDebug() << "INFO: Local is AHEAD of remote; Remote has Local";
             status = AHEAD; // we are ahead, they are behind
             rumorMapToSend = messages_list[localIter.key()][remoteWants[localIter.key()]];
         }
-        else {
+        else if(remoteWants[localIter.key()] > want_list[localIter.key()]){
             qDebug() << "INFO: Local is BEHIND remote; Local has Remote.";
             status = BEHIND;
         }
@@ -332,7 +332,7 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
     qDebug() << QString("INFO: Act on Status#: " + QString::number(status));
     switch(status) {
         case AHEAD:
-            qDebug() << "INFO: Local is AHEAD of the remote. Send new rumor.";
+            qDebug() << "INFO: Local is AHEAD of the remote. Send new rumor." << rumorByteArray;
 
             mySocket->writeDatagram(rumorByteArray, QHostAddress::LocalHost, remotePort);
             qDebug() << QString("INFO: Sent datagram to port " + QString::number(remotePort));
