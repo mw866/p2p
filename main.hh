@@ -64,7 +64,6 @@ class ChatDialog : public QDialog
         void processStatus(QMap<QString, QMap<QString, quint32> > wants);
         void processMessage(QVariantMap wants);
         void sendStatus(QByteArray);
-        void replyWithRumor();
         void rumorMongering(QVariantMap messageMap);
         void addToMessageList(QVariantMap messageMap, quint32 origin, quint32 seqNo);
         QByteArray serializeMessage(QString);
