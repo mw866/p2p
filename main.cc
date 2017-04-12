@@ -205,7 +205,8 @@ void ChatDialog::processIncomingDatagram(QByteArray datagram)
     }
 }
 
-void ChatDialog::processMessage(QVariantMap messageMap){
+void ChatDialog::processMessage(
+    ){
     qDebug() << "Inside processMessage" << messageMap;
     
     quint32 origin = messageMap.value("Origin").toUInt();
@@ -235,14 +236,13 @@ void ChatDialog::processMessage(QVariantMap messageMap){
         }
     }
     else {
-            // we have received messages from this origin before, need to update sequence number
+        qDebug() << "Message back to the sender";
         if(want_list.contains(QString::number(origin))) {
             want_list[QString::number(origin)] = seqNo+1;
         }
         else { // add this origin to the table
-            want_list.insert(QString::number(origin), seqNo+1); // want the next message
+            want_list.insert(QString::number(origin), seqNo+1); 
         }
-        qDebug() << "Message is from myself, not printing";
         }
 
     sendStatus(serializeStatus());
@@ -266,6 +266,8 @@ void ChatDialog::addToMessageList(QVariantMap messageMap, quint32 origin, quint3
     textview->append(QString::number(origin) + ": " + messageMap.value("ChatText").toString());
 
     rumorMongering(messageMap);
+    //add the message that was sent to the global variable last_message
+    last_message = messageMap;
 
 }
 

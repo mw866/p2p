@@ -45,6 +45,7 @@ class ChatDialog : public QDialog
         int SeqNo;
         int remotePort;
         QMap<QString, quint32> want_list;
+        QVariantMap last_message;
 
         QMap<QString, QMap<quint32, QVariantMap> > messages_list;
 
