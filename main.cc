@@ -205,8 +205,7 @@ void ChatDialog::processIncomingDatagram(QByteArray datagram)
     }
 }
 
-void ChatDialog::processMessage(
-    ){
+void ChatDialog::processMessage(QVariantMap messageMap){
     qDebug() << "Inside processMessage" << messageMap;
     
     quint32 origin = messageMap.value("Origin").toUInt();
@@ -227,6 +226,7 @@ void ChatDialog::processMessage(
             //increment want list
             want_list[QString::number(origin)] = seqNo+1;
         }
+
         else { 
             qDebug() << "Inside this else statement";
             //first time message is coming from this origin so add to want list 
@@ -346,7 +346,7 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
         case INSYNC:
             qDebug() << "INFO: Local is IN SYNC with remote. Start Rumor Mongering.";
             if(qrand() > .5*RAND_MAX) { // continue rumormongering
-                rumorMongering(rumorMapToSend);
+                rumorMongering(last_message);
                 mySocket->restartTimer();
             }
             break;
