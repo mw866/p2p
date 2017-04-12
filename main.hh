@@ -43,6 +43,7 @@ class ChatDialog : public QDialog
         void sendDatagrams(QByteArray);
         NetSocket *mySocket;
         int SeqNo;
+        int remotePort;
         QMap<QString, quint32> want_list;
 
         QMap<QString, QMap<quint32, QVariantMap> > messages_list;

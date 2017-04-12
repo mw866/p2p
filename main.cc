@@ -116,9 +116,8 @@ void ChatDialog::sendDatagrams(QByteArray datagram) {
 // Send Status Message
 void ChatDialog::sendStatus(QByteArray datagram)
 {
-    // TODO Change hardcoded destination portnumber
-    mySocket->writeDatagram(datagram.data(), datagram.size(), QHostAddress("127.0.0.1"), 36770);
-    textview->append(textline->text());
+    mySocket->writeDatagram(datagram.data(), datagram.size(), QHostAddress("127.0.0.1"), remotePort);
+
 }
 
 
@@ -149,6 +148,7 @@ void ChatDialog::readPendingDatagrams()
 
         // TODO Change hardcoded destination portnumber
         mySocket->readDatagram(datagram.data(), datagram.size(), &senderAddress,  &senderPort);
+        remotePort = senderPort;
 
         //QPeer sender(senderAddress, senderPort);
         // FIXME: Adding self as a peer accidentally
