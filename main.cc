@@ -265,11 +265,11 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
 {
 
 
-    QMap<QString, QVariant> rumorToSend;
-    QMap remoteWants = receivedStatusMap["Want"];
+    QMap<QString, QVariant> rumorByteArray;
+    QMap<QString, quint32> remoteWants = receivedStatusMap["Want"];
 
     qDebug() << "INFO: Remote WANTS: " << remoteWants;
-    QMap localWants; // TODO Temp; localwants to be defined in globally instead
+    QMap<QString, quint32> localWants; // TODO Temp; localwants to be defined in globally instead
     qDebug() << "INFO: Local WANTS: " << localWants;
 
 
@@ -283,19 +283,19 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
     Status status =  INSYNC;
 
     // In the local WANTS, iterate through all hosts(key)  and compare SeqNo(value) with remote WANTS
-    QMap::const_iterator localIter = localWants.constBegin();
+    QMap<QString, quint32>::const_iterator localIter = localWants.constBegin();
 
-    while (localIter ){
+    while (localIter != localWants.constEnd()){
         if(!remoteWants.contains(localIter.key())){
             // If the remote WANTS does NOT contain the local node
             qDebug() << "INFO: Local is AHEAD of remote; Remote does not have Local.";
             status = AHEAD;
-            rumorToSend = messageMap[localIter.key()][quint32(0)];
+            rumorByteArray = messages_list[localIter.key()][quint32(0)];
         } else if(remoteWants[localIter.key()] <= localWants[localIter.key()]) {
             qDebug() << "INFO: Local is AHEAD of remote; Remote has Local";
             status = AHEAD; // we are ahead, they are behind
-            QMap messageMap; // TODO Temp; messageMap to be defined globally;
-            rumorToSend = messageMap[localIter.key()][remoteWants[localIter.key()]];
+//            QMap messageMap; // TODO Temp; messageMap to be defined globally;
+            rumorByteArray = messages_list[localIter.key()][remoteWants[localIter.key()]];
         }
         else {
             qDebug() << "INFO: Local is BEHIND remote; Local has Remote.";
@@ -304,13 +304,19 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
     }
 
     // In the remote WANTS, iterate through all hosts(key) and compare SeqNo(value) with local WANTS
-    QMap::const_iterator remoteIter = remoteWants.constBegin();
+    QMap<QString, quint32>::const_iterator remoteIter = remoteWants.constBegin();
     while (remoteIter != remoteWants.constEnd()){
         if(!localWants.contains(remoteIter.key())) {
             qDebug() << "INFO: Local is BEHIND remote; Local does NOT have Remote.";
             status = BEHIND;
         }
     }
+
+    //serialize the message
+    QByteArray datagram;
+    QDataStream * stream = new QDataStream(&datagram, QIODevice::ReadWrite);
+    (*stream) << rumorByteArray;
+    delete stream;
 
     // ===Act on the status===
     switch(status) {
@@ -319,14 +325,12 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
             break;
         case BEHIND:
             qDebug() << "INFO: Local is BEHIND the remote. Reply with status";
-            QByteArray statusBytes = serializeMessage(messages_list);
-            sendStatus(statusBytes);
+            sendStatus(serializeStatus());
             break;
         case INSYNC:
             qDebug() << "INFO: Local is IN SYNC with remote. Start Rumor Mongering.";
             if(qrand() > .5*RAND_MAX) { // continue rumormongering
-                QByteArray rumorBytes = serializeMessage(rumorToSend);
-                rumorMongering(rumorBytes); //TODO
+                rumorMongering(rumorByteArray);
                 mySocket->restartTimer();
             }
             break;
