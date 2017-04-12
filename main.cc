@@ -24,6 +24,15 @@ ChatDialog::ChatDialog()
     if (!mySocket->bind())
         exit(1);
 
+    // initialize timeout timers
+    timtoutTimer = new QTimer(this);
+    connect(timtoutTimer, SIGNAL(timeout()), this, SLOT(timeoutHandler()));
+
+    //initialize antientropy timer
+    antientropyTimer = new QTimer(this);
+    connect(antientropyTimer, SIGNAL(timeout()), this, SLOT(antiEntropyHandler()));
+    antientropyTimer->start(10000);
+
     // tracking the receipts of messages status
     m_messageStatus = new QMap<QString, quint32>;
 
@@ -110,6 +119,7 @@ void ChatDialog::sendDatagrams(QByteArray datagram) {
     qDebug() <<  "Sending message to port " << QString::number(neighbor);
 
     mySocket->writeDatagram(datagram, datagram.size(), QHostAddress("127.0.0.1"), neighbor);
+    timtoutTimer->start(1000);
     //textview->append(textline->text());
 }
 
@@ -117,7 +127,7 @@ void ChatDialog::sendDatagrams(QByteArray datagram) {
 void ChatDialog::sendStatus(QByteArray datagram)
 {
     mySocket->writeDatagram(datagram.data(), datagram.size(), QHostAddress("127.0.0.1"), remotePort);
-
+    timtoutTimer->start(1000);
 }
 
 
@@ -245,8 +255,9 @@ void ChatDialog::processMessage(QVariantMap messageMap){
         }
         }
 
+    timtoutTimer->stop();
     sendStatus(serializeStatus());
-    
+
 }
 
 //add past messages to message list and rumor monger
@@ -324,6 +335,7 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
         }
         ++remoteIter;
     }
+    timtoutTimer->stop();
 
     //serialize the rumor
     QByteArray rumorByteArray;
@@ -348,7 +360,6 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
             qDebug() << "INFO: Local is IN SYNC with remote. Start Rumor Mongering.";
             if(qrand() > .5*RAND_MAX) { // continue rumormongering
                 rumorMongering(last_message);
-                mySocket->restartTimer();
             }
             break;
     }
@@ -379,6 +390,24 @@ void ChatDialog::gotReturnPressed()
     textline->clear();
 }
 
+
+void ChatDialog::timeoutHandler() {
+    qDebug() << "INFO: Entered timeoutHandler.";
+    QByteArray data;
+    QDataStream stream(&data, QIODevice::ReadWrite);
+    stream << last_message;
+    mySocket->writeDatagram(data, data.size(), QHostAddress("127.0.0.1"), remotePort);
+
+    timtoutTimer->start(1000); // reset the timer
+}
+
+void ChatDialog::antiEntropyHandler(){
+    qDebug() << "INFO: Entered Antientropy handler.";
+    sendDatagrams(serializeStatus());
+    // restart anti-entropy
+    antientropyTimer->start(10000);
+}
+
 NetSocket::NetSocket()
 {
     // Pick a range of four UDP ports to try to allocate by default, computed based on my Unix user ID.
@@ -396,11 +425,7 @@ bool NetSocket::bind()
             qDebug() << "bound to UDP port " << p;
             myPort = p;
 
-            // initialize timers
-            timer = new QTimer(this);
-            connect(timer, SIGNAL(timeout()), this, SLOT(timeoutHandler()));
-
-            return true;
+           return true;
         }
     }
 
@@ -409,9 +434,6 @@ bool NetSocket::bind()
     return false;
 }
 
-void NetSocket::restartTimer() {
-    timer->start(1000);
-}
 
 
 

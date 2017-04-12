@@ -26,8 +26,6 @@ class NetSocket : public QUdpSocket
 
         // Bind this socket to a P2Papp-specific default port.
         bool bind();
-        void restartTimer();
-        QTimer * timer;
 
 public:
         int myPortMin, myPortMax, myPort;
@@ -48,10 +46,15 @@ class ChatDialog : public QDialog
         QVariantMap last_message;
 
         QMap<QString, QMap<quint32, QVariantMap> > messages_list;
+        QTimer * timtoutTimer;
+        QTimer * antientropyTimer;
 
-        public slots:
-                void gotReturnPressed();
-                void readPendingDatagrams();
+
+    public slots:
+        void gotReturnPressed();
+        void readPendingDatagrams();
+        void timeoutHandler();
+        void antiEntropyHandler();
 
     private:
         QTextEdit *textview;
@@ -66,6 +69,7 @@ class ChatDialog : public QDialog
         void addToMessageList(QVariantMap messageMap, quint32 origin, quint32 seqNo);
         QByteArray serializeMessage(QString);
         QByteArray serializeStatus();
+
 };
 
 #endif // P2PAPP_MAIN_HH
