@@ -186,8 +186,7 @@ void ChatDialog::processIncomingDatagram(QByteArray datagram)
     QDataStream stream(&datagram, QIODevice::ReadOnly);
     stream >> statusMap;
 
-    qDebug() << "Inside processIncomingDatagram" << messageMap;
-    qDebug() << "Inside processIncomingDatagram" << statusMap;
+    qDebug() << "INFO: Inside processIncomingDatagram" << messageMap;
     if (messageMap.contains("Want")) {
         qDebug() << "INFO: Received  a Status Message";
        // QMap<QString, QVariant> wants = messageMap.value("Want").toMap();
@@ -200,9 +199,7 @@ void ChatDialog::processIncomingDatagram(QByteArray datagram)
     }  else if(messageMap.contains("ChatText")){
          qDebug() << "INFO: Received a Chat message";
          processMessage(messageMap);
-        // TODO Handle Chat message
-    }
-        else {
+    }  else {
         qDebug() << "ERROR: Improperly formatted message";
         return;
     }
@@ -267,12 +264,12 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
 {
 
 
-    QMap<QString, QVariant> rumorByteArray;
+    QMap<QString, QVariant> rumorMapToSend;
     QMap<QString, quint32> remoteWants = receivedStatusMap["Want"];
 
     qDebug() << "INFO: Remote WANTS: " << remoteWants;
-    QMap<QString, quint32> localWants; // TODO Temp; localwants to be defined in globally instead
-    qDebug() << "INFO: Local WANTS: " << localWants;
+//    QMap<QString, quint32> localWants= want_list; // TODO To standardize the naming
+    qDebug() << "INFO: Local WANTS: " << want_list;
 
 
     //===Decide the status===
@@ -281,58 +278,63 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
      * BEHIND:
      * */
 
-    enum Status { INSYNC, AHEAD, BEHIND };
+    enum Status { INSYNC = 1, AHEAD = 2 , BEHIND = 3 };
     Status status =  INSYNC;
 
     // In the local WANTS, iterate through all hosts(key)  and compare SeqNo(value) with remote WANTS
-    QMap<QString, quint32>::const_iterator localIter = localWants.constBegin();
+    QMap<QString, quint32>::const_iterator localIter = want_list.constBegin();
 
-    while (localIter != localWants.constEnd()){
+    while (localIter != want_list.constEnd()){
         if(!remoteWants.contains(localIter.key())){
             // If the remote WANTS does NOT contain the local node
             qDebug() << "INFO: Local is AHEAD of remote; Remote does not have Local.";
             status = AHEAD;
-            rumorByteArray = messages_list[localIter.key()][quint32(0)];
-        } else if(remoteWants[localIter.key()] <= localWants[localIter.key()]) {
+            rumorMapToSend = messages_list[localIter.key()][quint32(0)];
+        } else if(remoteWants[localIter.key()] <= want_list[localIter.key()]) {
             qDebug() << "INFO: Local is AHEAD of remote; Remote has Local";
             status = AHEAD; // we are ahead, they are behind
-//            QMap messageMap; // TODO Temp; messageMap to be defined globally;
-            rumorByteArray = messages_list[localIter.key()][remoteWants[localIter.key()]];
+            rumorMapToSend = messages_list[localIter.key()][remoteWants[localIter.key()]];
         }
         else {
             qDebug() << "INFO: Local is BEHIND remote; Local has Remote.";
             status = BEHIND;
         }
+        ++localIter;
     }
 
     // In the remote WANTS, iterate through all hosts(key) and compare SeqNo(value) with local WANTS
     QMap<QString, quint32>::const_iterator remoteIter = remoteWants.constBegin();
     while (remoteIter != remoteWants.constEnd()){
-        if(!localWants.contains(remoteIter.key())) {
+        if(!want_list.contains(remoteIter.key())) {
             qDebug() << "INFO: Local is BEHIND remote; Local does NOT have Remote.";
             status = BEHIND;
         }
+        ++remoteIter;
     }
 
-    //serialize the message
-    QByteArray datagram;
-    QDataStream * stream = new QDataStream(&datagram, QIODevice::ReadWrite);
-    (*stream) << rumorByteArray;
+    //serialize the rumor
+    QByteArray rumorByteArray;
+    QDataStream * stream = new QDataStream(&rumorByteArray, QIODevice::ReadWrite);
+    (*stream) << rumorMapToSend;
     delete stream;
 
-    // ===Act on the status===
+    // Act on the status
+    qDebug() << QString("INFO: Act on Status#: " + QString::number(status));
     switch(status) {
         case AHEAD:
-            qDebug() << "INFO: Local is AHEAD of the remote. Do nothing";
+            qDebug() << "INFO: Local is AHEAD of the remote. Send new rumor.";
+
+            mySocket->writeDatagram(rumorByteArray, QHostAddress::LocalHost, remotePort);
+            qDebug() << QString("INFO: Sent datagram to port " + QString::number(remotePort));
             break;
         case BEHIND:
-            qDebug() << "INFO: Local is BEHIND the remote. Reply with status";
+            qDebug() << "INFO: Local is BEHIND the remote. Reply with status.";
             sendStatus(serializeStatus());
             break;
         case INSYNC:
             qDebug() << "INFO: Local is IN SYNC with remote. Start Rumor Mongering.";
             if(qrand() > .5*RAND_MAX) { // continue rumormongering
-                rumorMongering(rumorByteArray);
+                rumorMongering(rumorMapToSend);
                 mySocket->restartTimer();
             }
             break;
@@ -380,8 +382,6 @@ bool NetSocket::bind()
         if (QUdpSocket::bind(p)) {
             qDebug() << "bound to UDP port " << p;
             myPort = p;
-
-
 
             // initialize timers
             timer = new QTimer(this);
