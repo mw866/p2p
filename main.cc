@@ -234,12 +234,22 @@ void ChatDialog::processMessage(QVariantMap messageMap){
             addToMessageList(messageMap, origin, seqNo);
         }
     }
+    else {
+            // we have received messages from this origin before, need to update sequence number
+        if(want_list.contains(QString::number(origin))) {
+            want_list[QString::number(origin)] = seqNo+1;
+        }
+        else { // add this origin to the table
+            want_list.insert(QString::number(origin), seqNo+1); // want the next message
+        }
+        qDebug() << "Message is from myself, not printing";
+        }
 
     sendStatus(serializeStatus());
     
 }
 
-//past messages
+//add past messages to message list and rumor monger
 void ChatDialog::addToMessageList(QVariantMap messageMap, quint32 origin, quint32 seqNo){
     //QString messages = messageMap.value("ChatText").toString();
     //ui->appendString(QString(origin + ": " + messages));
