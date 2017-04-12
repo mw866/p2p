@@ -237,6 +237,8 @@ void ChatDialog::processMessage(QVariantMap messageMap){
             addToMessageList(messageMap, origin, seqNo);
         }
     }
+
+    sendStatus(serializeStatus());
     
 }
 
