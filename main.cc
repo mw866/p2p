@@ -28,7 +28,7 @@ ChatDialog::ChatDialog()
     m_messageStatus = new QMap<QString, quint32>;
 
     // Initialize SeqNo
-    SeqNo = 1;
+    SeqNo = 0;
 
     // Register a callback on the textline's returnPressed signal so that we can send the message entered by the user.
     connect(textline, SIGNAL(returnPressed()),
@@ -296,6 +296,7 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
     // In the local WANTS, iterate through all hosts(key)  and compare SeqNo(value) with remote WANTS
     QMap<QString, quint32>::const_iterator localIter = want_list.constBegin();
 
+    qDebug() << "Remote Wants" << remoteWants << "\n Local Wants: "<< want_list;
     while (localIter != want_list.constEnd()){
         if(!remoteWants.contains(localIter.key())){
             // If the remote WANTS does NOT contain the local node
