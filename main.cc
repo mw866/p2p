@@ -154,34 +154,49 @@ void ChatDialog::readPendingDatagrams()
         // FIXME: Adding self as a peer accidentally
         //        addPeer(sender);
 
-        QVariantMap messageMap;
-        QDataStream serializer(&datagram, QIODevice::ReadOnly);
-        serializer >> messageMap;
-        if (serializer.status() != QDataStream::Ok) {
-            qDebug() << "ERROR: Failed to deserialize datagram into QVariantMap";
-            return;
-        }
+        // QVariantMap messageMap;
+        // QDataStream serializer(&datagram, QIODevice::ReadOnly);
+        // serializer >> messageMap;
+        // if (serializer.status() != QDataStream::Ok) {
+        //     qDebug() << "ERROR: Failed to deserialize datagram into QVariantMap";
+        //     return;
+        // }
 
         // TODO Handle rumor-mongoring and display if it's a new message processIncomingDatagram(sender, messageMap);
-        processIncomingDatagram(messageMap);
-        qDebug() << "SUCCESS: Deserialized datagram to " << messageMap.value("ChatText");
+        processIncomingDatagram(datagram);
+        //qDebug() << "SUCCESS: Deserialized datagram to " << messageMap.value("ChatText");
     }
 }
 
 
-void ChatDialog::processIncomingDatagram(QVariantMap messageMap)
+void ChatDialog::processIncomingDatagram(QByteArray datagram)
 // Identify and triage incoming datagram
 {
+    //create message map of type QVariantMap
+    QVariantMap messageMap;
+    QDataStream serializer(&datagram, QIODevice::ReadOnly);
+    serializer >> messageMap;
+    if (serializer.status() != QDataStream::Ok) {
+        qDebug() << "ERROR: Failed to deserialize datagram into QVariantMap";
+        return;
+    }
+
+    //create status map of type QMap<QString, QMap<QString, quint32> >
+    QMap<QString, QMap<QString, quint32> > statusMap;
+    QDataStream stream(&datagram, QIODevice::ReadOnly);
+    stream >> statusMap;
+
     qDebug() << "Inside processIncomingDatagram" << messageMap;
+    qDebug() << "Inside processIncomingDatagram" << statusMap;
     if (messageMap.contains("Want")) {
         qDebug() << "INFO: Received  a Status Message";
-        QMap<QString, QVariant> wants = messageMap.value("Want").toMap();
-        if (wants.isEmpty()) { // Also handles when "Want" key doesn't exist,
+       // QMap<QString, QVariant> wants = messageMap.value("Want").toMap();
+        if (statusMap.isEmpty()) { // Also handles when "Want" key doesn't exist,
             // b/c nil.toMap() is empty;
             qDebug() << "ERROR: Received invalid or empty status map";
             return;
         }
-        processStatus(wants);
+        processStatus(statusMap);
     }  else if(messageMap.contains("ChatText")){
          qDebug() << "INFO: Received a Chat message";
          processMessage(messageMap);
@@ -246,7 +261,7 @@ void ChatDialog::addToMessageList(QVariantMap messageMap, quint32 origin, quint3
 }
 
 
-void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedStatusMap receivedStatusMap)
+void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedStatusMap)
 {
 
 

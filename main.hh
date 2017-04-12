@@ -55,8 +55,8 @@ class ChatDialog : public QDialog
         QTextEdit *textview;
         QLineEdit *textline;
         QMap<QString, quint32>* m_messageStatus;
-        void processIncomingDatagram(QVariantMap messageMap);
-        void processStatus(QVariantMap& wants);
+        void processIncomingDatagram(QByteArray datagram);
+        void processStatus(QMap<QString, QMap<QString, quint32> > wants);
         void processMessage(QVariantMap wants);
         void sendStatus(QByteArray);
         void replyWithRumor();
