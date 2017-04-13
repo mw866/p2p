@@ -41,10 +41,10 @@ class ChatDialog : public QDialog
         void sendDatagrams(QByteArray);
         NetSocket *mySocket;
         int SeqNo;
-        int remotePort;
-        QMap<QString, quint32> want_list;
+        int remotePort; //port i receive from
+        int neighbor; //port i send to
+        QMap<QString, quint32> localWants;
         QVariantMap last_message;
-
         QMap<QString, QMap<quint32, QVariantMap> > messages_list;
         QTimer * timtoutTimer;
         QTimer * antientropyTimer;
@@ -60,7 +60,7 @@ class ChatDialog : public QDialog
         QTextEdit *textview;
         QLineEdit *textline;
         QMap<QString, quint32>* m_messageStatus;
-        void processIncomingDatagram(QByteArray datagram);
+        void processIncomingDatagram(QByteArray incomingBytes);
         void processStatus(QMap<QString, QMap<QString, quint32> > wants);
         void processMessage(QVariantMap wants);
         void sendStatus(QByteArray);

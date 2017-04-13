@@ -41,50 +41,52 @@ ChatDialog::ChatDialog()
     SeqNo = 0;
 
     // Register a callback on the textline's returnPressed signal so that we can send the message entered by the user.
-    connect(textline, SIGNAL(returnPressed()),
-        this, SLOT(gotReturnPressed()));
+    connect(textline, SIGNAL(returnPressed()), this, SLOT(gotReturnPressed()));
 
     // Register a callback on the textline's readyRead signal so that we can read messages.
-    connect(mySocket, SIGNAL(readyRead()),
-            this, SLOT(readPendingDatagrams()));
+    connect(mySocket, SIGNAL(readyRead()), this, SLOT(readPendingDatagrams()));
 
 
 }
 //Serialize message from QString to QByteArray
 QByteArray ChatDialog::serializeMessage(QString message_text) {
 
-    QVariantMap msg;
+    //msgQVariantMap: Intermediate serialized message
+    QVariantMap msgQVariantMap;
+
     //ChatText:  a QString containing user-entered text;
-    msg.insert("ChatText", message_text);
+    msgQVariantMap.insert("ChatText", message_text);
 
     // Origin : identifies the message’s original sender as a QString value;
-    msg.insert("Origin", QString::number(mySocket->myPort));
+    msgQVariantMap.insert("Origin", QString::number(mySocket->myPort));
 
-    // SeqNo: the monotonically increasing sequence number assigned by the original sender, as a quint32 value.
-    msg.insert("SeqNo",  SeqNo);
+    // SeqNo: the sequence number assigned by the original sender
+    msgQVariantMap.insert("SeqNo",  SeqNo);
     SeqNo += 1;
 
-    // add messages to the message list everytime we receive a message
+    // add messages to the message list every time we receive a message
     if(messages_list.contains(QString::number(mySocket->myPort))) { // if this is not the first message
-        messages_list[QString::number(mySocket->myPort)].insert(msg.value("SeqNo").toUInt(), msg);
+        messages_list[QString::number(mySocket->myPort)].insert(msgQVariantMap.value("SeqNo").toUInt(), msgQVariantMap);
     }
     else {
+        // qvariantmap just to initialize the data structure
         QMap<quint32, QVariantMap> qvariantmap;
         messages_list.insert(QString::number(mySocket->myPort), qvariantmap);
-        messages_list[QString::number(mySocket->myPort)].insert(msg.value("SeqNo").toUInt(), msg);
+        messages_list[QString::number(mySocket->myPort)].insert(msgQVariantMap.value("SeqNo").toUInt(), msgQVariantMap);
     }
 
     //serialize the message
-    QByteArray datagram;
-    QDataStream stream(&datagram,QIODevice::ReadWrite);
-    stream << msg; 
+    QByteArray msgByteArray;
+    QDataStream stream(&msgByteArray,QIODevice::ReadWrite);
+    stream << msgQVariantMap;
 
-    return datagram;
+    return msgByteArray;
 }
-//Serialize message from QMAP to QByteArray
+
+//Serialize status from QMap to QByteArray
 QByteArray ChatDialog::serializeStatus() {
     QMap<QString, QMap<QString, quint32> > statusMap;
-    statusMap.insert("Want", want_list);
+    statusMap.insert("Want", localWants);
 
     //serialize status
     QByteArray datagram;
@@ -94,31 +96,30 @@ QByteArray ChatDialog::serializeStatus() {
     return datagram;
 }
 
-// Send Chat Message to Neighbors 
+// Send Rumor to neighbors
 void ChatDialog::sendDatagrams(QByteArray datagram) {
-    // neighbor port
-    int neighbor;
-    //check if its the first port from the range of ports, if so send datagram to the port above
+
+    // check if its the first port from the range of ports, if so send datagram to the port above
     if (mySocket->myPort == mySocket->myPortMin) {
         neighbor = mySocket->myPort + 1;
-    //check if its the last port from the range of ports, if so send datagram to the port below
+    // check if its the last port from the range of ports, if so send datagram to the port below
     } else if (mySocket->myPort == mySocket->myPortMax) {
         neighbor = mySocket->myPort - 1;
     } else {
         //check if its a middle port from the range of ports, if so send datagram to the random port above or below
-        qDebug () << "I am choosing random neighbor";
+        qDebug () << "INFO: Choosing a random neighbor";
         srand(time(NULL));
         (rand() % 2 == 0) ?  neighbor = mySocket->myPort + 1: neighbor = mySocket->myPort - 1;
     }
 
-    qDebug() <<  "Sending message to port " << QString::number(neighbor);
-    //send datagram
+    qDebug() <<  "INFO: Sending message to port " << QString::number(neighbor);
+    // send datagram
     mySocket->writeDatagram(datagram, datagram.size(), QHostAddress("127.0.0.1"), neighbor);
     // start timeout
     timtoutTimer->start(1000);
 }
 
-// Send Status Message back to the port you received your last message
+// Send Status  back to the port you received your last message
 void ChatDialog::sendStatus(QByteArray datagram)
 {
     mySocket->writeDatagram(datagram.data(), datagram.size(), QHostAddress("127.0.0.1"), remotePort);
@@ -127,13 +128,13 @@ void ChatDialog::sendStatus(QByteArray datagram)
 
 //Rumor Monger by sending message to a neighboring port
 void ChatDialog::rumorMongering(QVariantMap messageMap){
-    //Serialize
-    QByteArray datagram;
-    QDataStream stream(&datagram,QIODevice::ReadWrite);
+    //Serialize rumor message
+    QByteArray rumorBytes;
+    QDataStream stream(&rumorBytes,QIODevice::ReadWrite);
     stream << messageMap;
     //send to a neighbor
-    sendDatagrams(datagram);
-    qDebug() << "Rumor has been mungored";
+    sendDatagrams(rumorBytes);
+    qDebug() << "INFO: Rumor has been mungored.";
 }
 
 
@@ -150,18 +151,16 @@ void ChatDialog::readPendingDatagrams()
         mySocket->readDatagram(datagram.data(), datagram.size(), &senderAddress,  &senderPort);
         //save the sender port number in a global variable
         remotePort = senderPort;
-        // process the data to see if its a status or a message
         processIncomingDatagram(datagram);
-        //qDebug() << "SUCCESS: Deserialized datagram to " << messageMap.value("ChatText");
     }
 }
 
 // process the data received to see if its a status or a message
-void ChatDialog::processIncomingDatagram(QByteArray datagram)
+void ChatDialog::processIncomingDatagram(QByteArray incomingBytes)
 {
-    //create message map of type QVariantMap which holdes the chat text
+    //create message map of type QVariantMap which holds the chat text
     QVariantMap messageMap;
-    QDataStream serializer(&datagram, QIODevice::ReadOnly);
+    QDataStream serializer(&incomingBytes, QIODevice::ReadOnly);
     serializer >> messageMap;
     if (serializer.status() != QDataStream::Ok) {
         qDebug() << "ERROR: Failed to deserialize datagram into QVariantMap";
@@ -170,9 +169,9 @@ void ChatDialog::processIncomingDatagram(QByteArray datagram)
     qDebug() << "INFO: Inside processIncomingDatagram" << messageMap;
     //create status map of type QMap<QString, QMap<QString, quint32> > which holds the status
     QMap<QString, QMap<QString, quint32> > statusMap;
-    QDataStream stream(&datagram, QIODevice::ReadOnly);
+    QDataStream stream(&incomingBytes, QIODevice::ReadOnly);
     stream >> statusMap;
-    //check to see if the message map containts map or if it contains Chat Text
+    //check to see if the message map contains map or if it contains Chat Text
     if (messageMap.contains("Want")) {
         qDebug() << "INFO: Received  a Status Message";
         if (statusMap.isEmpty()) { // Also handles when "Want" key doesn't exist,
@@ -195,7 +194,7 @@ void ChatDialog::processIncomingDatagram(QByteArray datagram)
 
 //if the message received is a chat text / rumor then check the message to see if the origin is new and send back the status and rumormonger 
 void ChatDialog::processMessage(QVariantMap messageMap){
-    qDebug() << "Inside processMessage" << messageMap;
+    qDebug() << "INFO: Inside processMessage()." << messageMap;
     
     //initialize origin and seqNo to the origin value and seqNo value in message map
     quint32 origin = messageMap.value("Origin").toUInt();
@@ -203,44 +202,40 @@ void ChatDialog::processMessage(QVariantMap messageMap){
 
     //if the sender and receiver of the message are not the same
     if(mySocket->myPort != origin) {
-        qDebug() << "Inside this if statement" << mySocket->myPort;
-        qDebug() << "Want LIST:" << want_list;
         //check if we have seen messages from this origin before
-        if(want_list.contains(QString::number(origin))) {
-            qDebug() << "Inside this want_list if statement and seq number is: " << seqNo << want_list.value("Origin");
+        if(localWants.contains(QString::number(origin))) {
             //check if the received sequence number matches the wanted sequence number
-            if (seqNo == want_list.value(QString::number(origin))) {
-                 qDebug() << "Inside this if statement with the matching seq number";
-                 //This is a new message so add to message list by calling addtoMessageList function
+            if (seqNo == localWants.value(QString::number(origin))) {
+                 //If this is a new message so add to message list by calling addtoMessageList function
                  addToMessageList(messageMap, origin, seqNo);
             }
             //not sure if this is correct
-            want_list[QString::number(origin)] = seqNo+1;
+            localWants[QString::number(origin)] = seqNo + 1;
         }
 
         else { 
-            qDebug() << "Inside this else statement";
-            //first time message is coming from this origin so add to want list 
-            want_list.insert(QString::number(origin), seqNo+1); // want the next message
+            //IF first time message is coming from this origin,  add to want list
+            localWants.insert(QString::number(origin), seqNo+1); // want the next message
             //also add to the message list by calling the function
             addToMessageList(messageMap, origin, seqNo);
         }
     }
-    //sender is receiving his own message 
     else {
-        qDebug() << "Sender and receiver are the same";
-        if(want_list.contains(QString::number(origin))) {
-            want_list[QString::number(origin)] = seqNo+1;
+        //sender is receiving his own message
+        qDebug() << "INFO: Sender and Receiver are the same.";
+        if(localWants.contains(QString::number(origin))) {
+            // if the origin is in the local want list
+            localWants[QString::number(origin)] = seqNo + 1;
         }
         else {
-            want_list.insert(QString::number(origin), seqNo+1); 
+            // if the origin is NOT in the local want list
+            localWants.insert(QString::number(origin), seqNo+1);
         }
-        }
+    }
     //stop the time out
     timtoutTimer->stop();
     //send the status back to the sender
     sendStatus(serializeStatus());
-
 }
 
 //add past messages to message list and rumor monger
@@ -272,35 +267,34 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
     QMap<QString, quint32> remoteWants = receivedStatusMap["Want"];
 
     qDebug() << "INFO: Remote WANTS: " << remoteWants;
-//    QMap<QString, quint32> localWants= want_list; // TODO To standardize the naming
-    qDebug() << "INFO: Local WANTS: " << want_list;
+    qDebug() << "INFO: Local WANTS: " << localWants;
 
 
-    //===Decide the status===
-    /* INSYNC: Local SeqNo is exactly same the remote SeqNos
-     * AHEAD: Local SeqNo is greater than the remote SeqNo
-     * BEHIND:
-     * */
+    /* ===Decide the status===
+     * INSYNC: Local SeqNo is exactly same the remote SeqNo.
+     * AHEAD: Local SeqNo is greater than the remote SeqNo.
+     * BEHIND: Local SeqNo is less than the remote SeqNo.
+     */
 
     enum Status { INSYNC = 1, AHEAD = 2 , BEHIND = 3 };
+    // Default status is INSYNC, if no mismatch found in the following steps.
     Status status =  INSYNC;
 
-    // In the local WANTS, iterate through all hosts(key)  and compare SeqNo(value) with remote WANTS
-    QMap<QString, quint32>::const_iterator localIter = want_list.constBegin();
+    // In the local WANTS, iterate through all hosts(key) and compare SeqNo(value) with remote WANTS
+    QMap<QString, quint32>::const_iterator localIter = localWants.constBegin();
 
-    qDebug() << "Remote Wants" << remoteWants << "\n Local Wants: "<< want_list;
-    while (localIter != want_list.constEnd()){
+    while (localIter != localWants.constEnd()){
         if(!remoteWants.contains(localIter.key())){
             // If the remote WANTS does NOT contain the local node
             qDebug() << "INFO: Local is AHEAD of remote; Remote does not have Local.";
             status = AHEAD;
             rumorMapToSend = messages_list[localIter.key()][quint32(0)];
-        } else if(remoteWants[localIter.key()] < want_list[localIter.key()]) {
+        } else if(remoteWants[localIter.key()] < localWants[localIter.key()]) {
             qDebug() << "INFO: Local is AHEAD of remote; Remote has Local";
             status = AHEAD; // we are ahead, they are behind
             rumorMapToSend = messages_list[localIter.key()][remoteWants[localIter.key()]];
         }
-        else if(remoteWants[localIter.key()] > want_list[localIter.key()]){
+        else if(remoteWants[localIter.key()] > localWants[localIter.key()]){
             qDebug() << "INFO: Local is BEHIND remote; Local has Remote.";
             status = BEHIND;
         }
@@ -310,7 +304,7 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
     // In the remote WANTS, iterate through all hosts(key) and compare SeqNo(value) with local WANTS
     QMap<QString, quint32>::const_iterator remoteIter = remoteWants.constBegin();
     while (remoteIter != remoteWants.constEnd()){
-        if(!want_list.contains(remoteIter.key())) {
+        if(!localWants.contains(remoteIter.key())) {
             qDebug() << "INFO: Local is BEHIND remote; Local does NOT have Remote.";
             status = BEHIND;
         }
@@ -318,18 +312,17 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
     }
     timtoutTimer->stop();
 
-    //serialize the rumor
+    // Serialize the rumor
     QByteArray rumorByteArray;
     QDataStream * stream = new QDataStream(&rumorByteArray, QIODevice::ReadWrite);
     (*stream) << rumorMapToSend;
     delete stream;
 
     // Act on the status
-    qDebug() << QString("INFO: Act on Status#: " + QString::number(status));
+    qDebug() << "INFO: Act on Status#: " << QString::number(status);
     switch(status) {
         case AHEAD:
             qDebug() << "INFO: Local is AHEAD of the remote. Send new rumor." << rumorByteArray;
-
             mySocket->writeDatagram(rumorByteArray, QHostAddress::LocalHost, remotePort);
             qDebug() << QString("INFO: Sent datagram to port " + QString::number(remotePort));
             break;
@@ -339,7 +332,7 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
             break;
         case INSYNC:
             qDebug() << "INFO: Local is IN SYNC with remote. Start Rumor Mongering.";
-            if(qrand() > .5*RAND_MAX) { // continue rumormongering
+            if(qrand() > .5*RAND_MAX) {
                 rumorMongering(last_message);
             }
             break;
@@ -351,42 +344,42 @@ void ChatDialog::processStatus(QMap<QString, QMap<QString, quint32> > receivedSt
 void ChatDialog::gotReturnPressed()
 {
     // Just echo the string locally.
-    qDebug() << "Message Sending: " << textline->text();
+    qDebug() << "INFO: Entered gotReturnPressed(). Message Sending: " << textline->text();
     textview->append(QString::number(mySocket->myPort) + ": " + textline->text());
 
-    QString input_message = textline->text(); // get message text
-    QByteArray message = serializeMessage(input_message); // serialize into bytestream
+    QString inputString = textline->text(); // get message text
+    QByteArray message = serializeMessage(inputString); // serialize into bytestream
     
     // increment the want list before sending the datagram
-    if(want_list.contains(QString::number(mySocket->myPort))) {
-        want_list[QString::number(mySocket->myPort)]++;
+    if(localWants.contains(QString::number(mySocket->myPort))) {
+        localWants[QString::number(mySocket->myPort)] += 1;
     }
     else {
-        want_list.insert(QString::number(mySocket->myPort), 1);
+        localWants.insert(QString::number(mySocket->myPort), 1);
     }
 
-    //send datagram to neighbors
+    // Send datagram to neighbors
     sendDatagrams(message);
     // Clear the textline to get ready for the next input message.
     textline->clear();
 }
 
-//timeout handler that simply sends a last message to the last port the message tried sending to. 
+//Timeout handler that simply sends a last message to the last port the message tried sending to.
 void ChatDialog::timeoutHandler() {
-    qDebug() << "INFO: Entered timeoutHandler.";
+    qDebug() << "INFO: Entered timeoutHandler().";
     QByteArray data;
     QDataStream stream(&data, QIODevice::ReadWrite);
     stream << last_message;
-    mySocket->writeDatagram(data, data.size(), QHostAddress("127.0.0.1"), remotePort);
+    mySocket->writeDatagram(data, data.size(), QHostAddress("127.0.0.1"), neighbor);
     // reset the timer to 1 second
     timtoutTimer->start(1000);
 }
 
 //antiEntropyHandler that sends a status to the neighboring port every 10 seconds
 void ChatDialog::antiEntropyHandler(){
-    qDebug() << "INFO: Entered Antientropy handler.";
+    qDebug() << "INFO: Entered antiEntropyHandler().";
     sendDatagrams(serializeStatus());
-    // restart anti-entropy timer
+    // Restart anti-entropy timer
     antientropyTimer->start(10000);
 }
 
@@ -405,15 +398,14 @@ bool NetSocket::bind()
     // Try to bind to each of the range myPortMin..myPortMax in turn.
     for (int p = myPortMin; p <= myPortMax; p++) {
         if (QUdpSocket::bind(p)) {
-            qDebug() << "bound to UDP port " << p;
+            qDebug() << "INFO: bound to UDP port " << p;
             //store myPort number
             myPort = p;
 
            return true;
         }
     }
-    qDebug() << "Oops, no ports in my default range " << myPortMin
-        << "-" << myPortMax << " available";
+    qDebug() << "ERROR: No ports avaialble in the default range " << myPortMin << "-" << myPortMax << " available";
     return false;
 }
 
