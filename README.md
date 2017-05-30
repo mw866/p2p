@@ -1,12 +1,14 @@
 # P2P
 
+A Linux peer-to-peer messaging application using Qt and C++.
+
 ## Usage
 * Compile Qt
 
         qmake-qt4
         make
         
-* Listen to UDP Port: `netcat -ul <port>'
+* Listen to UDP Port: `netcat -ul <port>`
 
 
 
